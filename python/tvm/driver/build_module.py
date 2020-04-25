@@ -194,6 +194,8 @@ def lower(sch,
         stmt = ir_pass.InstrumentBoundCheckers(stmt)
     if simple_mode:
         return stmt
+    #print(name)
+    #print(stmt)
 
     f = tvm.tir.PrimFunc(arg_list, stmt).with_attr(
         "global_symbol", tvm.runtime.String(name))

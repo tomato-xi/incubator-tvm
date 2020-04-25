@@ -50,14 +50,14 @@ struct ArgsortAttrs : public tvm::AttrsNode<ArgsortAttrs> {
 };
 
 struct TopKAttrs : public tvm::AttrsNode<TopKAttrs> {
-  int k;
+  Expr k;
   int axis;
   bool is_ascend;
   std::string ret_type;
   DataType dtype;
 
   TVM_DECLARE_ATTRS(TopKAttrs, "relay.attrs.TopkAttrs") {
-    TVM_ATTR_FIELD(k).set_default(1)
+    TVM_ATTR_FIELD(k)
       .describe("Number of top elements to select");
     TVM_ATTR_FIELD(axis).set_default(-1)
       .describe("Axis along which to sort the input tensor.");

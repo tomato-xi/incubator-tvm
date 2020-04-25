@@ -99,7 +99,7 @@ def argsort(data, valid_count=None, axis=-1, is_ascend=1, dtype="float32"):
     return out
 
 
-def topk(data, k=1, axis=-1, ret_type="both", is_ascend=False, dtype="int64"):
+def topk(data, k, axis=-1, ret_type="both", is_ascend=False, dtype="int64"):
     """Get the top k elements in an input tensor along the given axis.
 
     Parameters
@@ -133,7 +133,10 @@ def topk(data, k=1, axis=-1, ret_type="both", is_ascend=False, dtype="int64"):
     assert ret_type in ["both", "values", "indices"]
     data_buf = tvm.tir.decl_buffer(data.shape, data.dtype, "data_buf", data_alignment=8)
     out_shape = list(get_const_tuple(data.shape))
-    if k >= 1:
+    kv = tvm.te.var("k")
+    if not isinstance(k, int):
+        out_shape[axis] = kv#tvm.te.var("k")
+    elif k >= 1:
         out_shape[axis] = k
     out_bufs = []
     if ret_type in ["both", "values"]:
@@ -145,7 +148,7 @@ def topk(data, k=1, axis=-1, ret_type="both", is_ascend=False, dtype="int64"):
     out = te.extern(out_shapes,
                     [data],
                     lambda ins, outs: tvm.tir.call_packed(
-                        "tvm.contrib.sort.topk", ins[0], *outs, k, axis, ret_type, is_ascend),
+                        "tvm.contrib.sort.topk", ins[0], *outs, kv if not isinstance(k, int) else k, axis, ret_type, is_ascend),
                     in_buffers=[data_buf],
                     out_buffers=out_bufs,
                     name="topk_cpu",

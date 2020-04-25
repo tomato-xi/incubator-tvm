@@ -124,19 +124,8 @@ def clip_compute(attrs, inputs, output_type):
 register_injective_schedule("clip")
 
 @script
-def _cast_shape_function(x):
-    out_ndim = len(x)
-    out = output_tensor((out_ndim,), "int64")
-    for i in const_range(out_ndim):
-        out[i] = x[i]
-    return out
-
-def cast_shape_func(attrs, inputs, out_ndims):
-    return [_cast_shape_function(*inputs)]
-
-@script
 def _full_shape_func(shape):
-    out_ndim = len(shape)
+    out_ndim = shape.shape[0]
     out = output_tensor((out_ndim,), "int64")
     for i in const_range(out_ndim):
         out[i] = int64(shape[i])
@@ -146,8 +135,7 @@ def full_shape_func(attrs, inputs, out_ndims):
     """
     Shape func for zeros, zeros_like, ones, ones_like.
     """
-    shape = get_const_tuple(attrs.shape)
-    return [_full_shape_func(convert(shape))]
+    return [_full_shape_func(inputs[1])]
 
 @script
 def _broadcast_shape_func(x, y, ndim):
@@ -189,12 +177,12 @@ def elemwise_shape_func(attrs, inputs, _):
     """
     return [topi.math.identity(inputs[0])]
 
-register_shape_func("cast", False, cast_shape_func)
-register_shape_func("zeros", False, full_shape_func)
+register_shape_func("cast", False, elemwise_shape_func)
+register_shape_func("zeros", True, full_shape_func)
 register_shape_func("zeros_like", False, elemwise_shape_func)
-register_shape_func("ones", False, full_shape_func)
+register_shape_func("ones", True, full_shape_func)
 register_shape_func("ones_like", False, elemwise_shape_func)
-register_shape_func("full", False, full_shape_func)
+register_shape_func("full", True, full_shape_func)
 register_shape_func("full_like", False, elemwise_shape_func)
 
 register_shape_func("add", False, broadcast_shape_func)

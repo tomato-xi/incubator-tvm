@@ -342,7 +342,6 @@ class TypeInferencer : private ExprFunctor<Type(const Expr&)>,
       type_map_[let->var].checked_type = let_type;
     }
 
-
     if (let->var->type_annotation.defined()) {
       let_type = Unify(let_type, let->var->type_annotation, GetRef<Let>(let));
     }

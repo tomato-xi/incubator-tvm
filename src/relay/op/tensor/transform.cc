@@ -927,14 +927,77 @@ Examples::
 
 // Init ops
 TVM_REGISTER_NODE_TYPE(InitOpAttrs);
+TVM_REGISTER_NODE_TYPE(FullAttrs);
+
+int64_t* ToVector(const runtime::NDArray& array) {
+  size_t len = array.Shape().front();
+  int64_t* rel_vec = new int64_t[len];
+  if (array->dtype.code == kDLInt) {
+    if (array->dtype.bits == 8) {
+      int8_t* init_array = reinterpret_cast<int8_t*>(array->data);
+      for (size_t i = 0; i < len; ++i) {
+        rel_vec[i] = int64_t(init_array[i]);
+      }
+      return rel_vec;
+    } else if (array->dtype.bits == 16) {
+      int16_t* init_array = reinterpret_cast<int16_t*>(array->data);
+      for (size_t i = 0; i < len; ++i) {
+        rel_vec[i] = int64_t(init_array[i]);
+      }
+      return rel_vec;
+    } else if (array->dtype.bits == 32) {
+      int32_t* init_array = reinterpret_cast<int32_t*>(array->data);
+      for (size_t i = 0; i < len; ++i) {
+        rel_vec[i] = int64_t(init_array[i]);
+      }
+      return rel_vec;
+    } else if (array->dtype.bits == 64) {
+      int64_t* init_array = reinterpret_cast<int64_t*>(array->data);
+      for (size_t i = 0; i < len; ++i) {
+        rel_vec[i] = int64_t(init_array[i]);
+      }
+      return rel_vec;
+    }
+  } else if (array->dtype.code == kDLUInt) {
+    if (array->dtype.bits == 8) {
+      uint8_t* init_array = reinterpret_cast<uint8_t*>(array->data);
+      for (size_t i = 0; i < len; ++i) {
+        rel_vec[i] = int64_t(init_array[i]);
+      }
+      return rel_vec;
+    } else if (array->dtype.bits == 16) {
+      uint16_t* init_array = reinterpret_cast<uint16_t*>(array->data);
+      for (size_t i = 0; i < len; ++i) {
+        rel_vec[i] = int64_t(init_array[i]);
+      }
+      return rel_vec;
+    } else if (array->dtype.bits == 32) {
+      uint32_t* init_array = reinterpret_cast<uint32_t*>(array->data);
+      for (size_t i = 0; i < len; ++i) {
+        rel_vec[i] = int64_t(init_array[i]);
+      }
+      return rel_vec;
+    } else if (array->dtype.bits == 64) {
+      uint64_t* init_array = reinterpret_cast<uint64_t*>(array->data);
+      for (size_t i = 0; i < len; ++i) {
+        rel_vec[i] = int64_t(init_array[i]);
+      }
+      return rel_vec;
+    }
+  }
+  LOG(FATAL) << "Unknown data type: " << tvm::runtime::DLDataType2String(array->dtype);
+  return rel_vec;
+}
 
 bool FullRel(const Array<Type>& types,
              int num_inputs,
              const Attrs& attrs,
              const TypeReporter& reporter) {
-  CHECK_EQ(types.size(), 2);
-  const InitOpAttrs* param = attrs.as<InitOpAttrs>();
+  CHECK_EQ(types.size(), 3);
+  const FullAttrs* param = attrs.as<FullAttrs>();
   const auto* fill_value = types[0].as<TensorTypeNode>();
+  const auto* fill_shape = types[1].as<TensorTypeNode>();
+
   if (fill_value == nullptr) {
     return false;
   }
@@ -948,7 +1011,21 @@ bool FullRel(const Array<Type>& types,
     << "Fill value should be a scalar but has dimension "
     << fill_value->shape.size() << ".";
 
-  reporter->Assign(types[1], TensorType(param->shape, out_dtype));
+  const IntImmNode* shape_shape = fill_shape->shape[0].as<IntImmNode>();
+  CHECK(shape_shape) << "Parameter shape must have static shape";
+ 
+  std::vector<IndexExpr> oshape;
+  if (const auto* shape = param->shape.as<ConstantNode>()) {
+    int64_t* shape_val = ToVector(shape->data);//reinterpret_cast<int32_t*>(shape->data->data);
+    for (int i = 0; i < shape_shape->value; ++i) {
+      oshape.push_back(tir::make_const(fill_shape->dtype, shape_val[i]));
+    }
+  } else {
+    for (int i = 0; i < shape_shape->value; ++i) {
+      oshape.push_back(Any::make());
+    }
+  }
+  reporter->Assign(types[2], TensorType(oshape, out_dtype));
   return true;
 }
 
@@ -960,13 +1037,13 @@ Array<te::Tensor> FullCompute(const Attrs& attrs,
 }
 
 Expr MakeFull(Expr fill_value,
-              Array<IndexExpr> shape,
+              Expr shape,
               DataType dtype) {
-  auto attrs = make_object<InitOpAttrs>();
-  attrs->shape = std::move(shape);
+  auto attrs = make_object<FullAttrs>();
+  attrs->shape = shape;
   attrs->dtype = std::move(dtype);
   static const Op& op = Op::Get("full");
-  return Call(op, {fill_value}, Attrs(attrs), {});
+  return Call(op, {fill_value, shape}, Attrs(attrs), {});
 }
 
 TVM_REGISTER_GLOBAL("relay.op._make.full")
@@ -976,13 +1053,14 @@ RELAY_REGISTER_OP("full")
 .describe(R"code(Fill array with scalar value.
 
 )code" TVM_ADD_FILELINE)
-.set_attrs_type<InitOpAttrs>()
-.set_num_inputs(1)
+.set_attrs_type<FullAttrs>()
+.set_num_inputs(2)
 .add_argument("fill_value", "double", "The value to fill.")
+.add_argument("shape", "tensor", "The value to fill.")
 .set_support_level(3)
 .add_type_rel("Full", FullRel)
 .set_attr<FTVMCompute>("FTVMCompute", FullCompute)
-.set_attr<TOpPattern>("TOpPattern", kElemWise);
+.set_attr<TOpPattern>("TOpPattern", kOpaque);
 
 bool InitOpRel(const Array<Type>& types,
                int num_inputs,
@@ -1779,66 +1857,6 @@ Array<Integer> GetIntArray(Array<IndexExpr> arr) {
 // strided_slice
 TVM_REGISTER_NODE_TYPE(StridedSliceAttrs);
 
-int64_t* ToVector(const runtime::NDArray& array) {
-  size_t len = array.Shape().front();
-  int64_t* rel_vec = new int64_t[len];
-  if (array->dtype.code == kDLInt) {
-    if (array->dtype.bits == 8) {
-      int8_t* init_array = reinterpret_cast<int8_t*>(array->data);
-      for (size_t i = 0; i < len; ++i) {
-        rel_vec[i] = int64_t(init_array[i]);
-      }
-      return rel_vec;
-    } else if (array->dtype.bits == 16) {
-      int16_t* init_array = reinterpret_cast<int16_t*>(array->data);
-      for (size_t i = 0; i < len; ++i) {
-        rel_vec[i] = int64_t(init_array[i]);
-      }
-      return rel_vec;
-    } else if (array->dtype.bits == 32) {
-      int32_t* init_array = reinterpret_cast<int32_t*>(array->data);
-      for (size_t i = 0; i < len; ++i) {
-        rel_vec[i] = int64_t(init_array[i]);
-      }
-      return rel_vec;
-    } else if (array->dtype.bits == 64) {
-      int64_t* init_array = reinterpret_cast<int64_t*>(array->data);
-      for (size_t i = 0; i < len; ++i) {
-        rel_vec[i] = int64_t(init_array[i]);
-      }
-      return rel_vec;
-    }
-  } else if (array->dtype.code == kDLUInt) {
-    if (array->dtype.bits == 8) {
-      uint8_t* init_array = reinterpret_cast<uint8_t*>(array->data);
-      for (size_t i = 0; i < len; ++i) {
-        rel_vec[i] = int64_t(init_array[i]);
-      }
-      return rel_vec;
-    } else if (array->dtype.bits == 16) {
-      uint16_t* init_array = reinterpret_cast<uint16_t*>(array->data);
-      for (size_t i = 0; i < len; ++i) {
-        rel_vec[i] = int64_t(init_array[i]);
-      }
-      return rel_vec;
-    } else if (array->dtype.bits == 32) {
-      uint32_t* init_array = reinterpret_cast<uint32_t*>(array->data);
-      for (size_t i = 0; i < len; ++i) {
-        rel_vec[i] = int64_t(init_array[i]);
-      }
-      return rel_vec;
-    } else if (array->dtype.bits == 64) {
-      uint64_t* init_array = reinterpret_cast<uint64_t*>(array->data);
-      for (size_t i = 0; i < len; ++i) {
-        rel_vec[i] = int64_t(init_array[i]);
-      }
-      return rel_vec;
-    }
-  }
-  LOG(FATAL) << "Unknown data type: " << tvm::runtime::DLDataType2String(array->dtype);
-  return rel_vec;
-}
-
 bool StridedSliceRel(const Array<Type>& types,
                      int num_inputs,
                      const Attrs& attrs,
@@ -1921,8 +1939,8 @@ bool StridedSliceRel(const Array<Type>& types,
       } else {
         if (begin_v < 0) begin_v = 0;
         CHECK_GE(stride_v, 0);
-        CHECK_LT(begin_v, end_v)
-            << "strided_slice get empty slice at axis " << i;
+        CHECK_LE(begin_v, end_v)
+            << "strided_slice get negative slice at axis " << i;
         end_v = std::min(dim_size, end_v);
         slice_range = end_v - begin_v;
         step = stride_v;
@@ -2043,13 +2061,11 @@ inline te::Tensor DynamicStridedSlice(const te::Tensor& input,
                                   const te::Tensor& begin,
                                   const te::Tensor& end,
                                   const te::Tensor& strides,
+				  const Type& out_type,
                                   std::string name = "T_strided_slice_dynamic",
                                   std::string tag = topi::kInjective) {
   int64_t src_tensor_dim = input->shape.size();
-  Array<IndexExpr> out_shape;
-  for (int64_t i = 0; i < src_tensor_dim; ++i) {
-    out_shape.push_back(tvm::tir::Var("dim"));
-  }
+  Array<IndexExpr> out_shape = out_type.as<TensorTypeNode>()->shape;
   // TODO(yongwww): move the compute into topi
   return te::compute(out_shape, [&](const Array<tvm::tir::Var>& indices) {
       Array<IndexExpr> real_indices;
@@ -2092,7 +2108,7 @@ Array<te::Tensor> StridedSliceCompute(const Attrs& attrs,
     te::Tensor strides = inputs[3];
     // Dynamic computation
     return Array<te::Tensor>{
-      DynamicStridedSlice(data, begin, end, strides)
+      DynamicStridedSlice(data, begin, end, strides, out_type)
     };
   }
 }
@@ -2225,13 +2241,19 @@ bool SplitRel(const Array<Type>& types,
     << "axis should be within the input dimension range.";
 
   if (const IntImmNode* sections = param->indices_or_sections.as<IntImmNode>()) {
-    CHECK(reporter->Assert(indexmod(data->shape[axis],
+    if (!data->shape[axis].as<Any>()) {
+      CHECK(reporter->Assert(indexmod(data->shape[axis],
                                     sections->value) == tir::make_zero(DataType::Int(64))))
         << "indices_or_sections need to be able to divide input.shape[axis]";
+    }
     std::vector<Type> fields;
     for (int i = 0; i < sections->value; ++i) {
         std::vector<IndexExpr> oshape(data->shape.begin(), data->shape.end());
-        oshape[axis] = indexdiv(oshape[axis], sections->value);
+	if (data->shape[axis].as<Any>()) {
+          oshape[axis] = Any::make();
+	} else {
+          oshape[axis] = indexdiv(oshape[axis], sections->value);
+	}
         auto vec_type = TensorType(oshape, data->dtype);
         fields.push_back(vec_type);
     }
@@ -2249,10 +2271,16 @@ bool SplitRel(const Array<Type>& types,
       auto vec_type = TensorType(oshape, data->dtype);
       fields.push_back(vec_type);
     }
-    CHECK(reporter->Assert(begin < data->shape[axis]))
-        << "The sum of sections must match the input.shape[axis]";
+    if (!data->shape[axis].as<Any>()) {
+      CHECK(reporter->Assert(begin < data->shape[axis]))
+          << "The sum of sections must match the input.shape[axis]";
+    }
     std::vector<IndexExpr> oshape(data->shape.begin(), data->shape.end());
-    oshape[axis] = data->shape[axis] - begin;
+    if (data->shape[axis].as<Any>()) {
+      oshape[axis] = Any::make();
+    } else {
+      oshape[axis] = data->shape[axis] - begin;
+    }
     auto vec_type = TensorType(oshape, data->dtype);
     fields.push_back(vec_type);
     reporter->Assign(types[1], TupleType(Array<Type>(fields)));

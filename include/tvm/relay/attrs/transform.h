@@ -122,6 +122,20 @@ struct InitOpAttrs : public tvm::AttrsNode<InitOpAttrs> {
   }
 };  // struct InitOpAttrs
 
+/*! \brief Attributes that specify a tensor */
+struct FullAttrs : public tvm::AttrsNode<FullAttrs> {
+  Expr shape;
+  DataType dtype;
+
+  TVM_DECLARE_ATTRS(FullAttrs, "relay.attrs.FullAttrs") {
+    TVM_ATTR_FIELD(shape)
+      .describe("Target shape.");
+    TVM_ATTR_FIELD(dtype)
+      .describe("Target data type.")
+      .set_default(NullValue<DataType>());
+  }
+};  // struct InitOpAttrs
+
 /*! \brief Attributes used in arange operators */
 struct ArangeAttrs : public tvm::AttrsNode<ArangeAttrs> {
   Expr start;

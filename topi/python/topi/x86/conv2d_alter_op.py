@@ -31,8 +31,13 @@ from ..nn.util import get_pad_tuple
 
 logger = logging.getLogger('topi')
 
+aaa = 0
+
 @conv2d_alter_layout.register("cpu")
 def _alter_conv2d_layout(attrs, inputs, tinfos, out_type):
+    global aaa
+    aaa += 1
+    print("Num of conv2d %d" % aaa)
     target = tvm.target.Target.current(allow_none=False)
     dispatch_ctx = autotvm.task.DispatchContext.current
     if isinstance(dispatch_ctx, autotvm.task.ApplyGraphBest):

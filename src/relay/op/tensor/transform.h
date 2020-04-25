@@ -91,22 +91,18 @@ bool ConcatenateRel(const Array<Type>& types,
     if (e_dtype != dtype) {
       throw Error("relay.concatenate requires all tensors have the same dtype");
     }
-    for (size_t j = 0; j < first->shape.size(); ++j) {
-      if (j == static_cast<size_t>(axis)) continue;
-      if (reporter->AssertEQ(first->shape[j], e->shape[j])) continue;
-      throw Error("relay.concatenate requires all tensors have the same shape "
-                   "on non-concatenating axes");
-    }
   }
+
 
   // Calculate shape
   std::vector<IndexExpr> oshape(first->shape.begin(), first->shape.end());
   IndexExpr &concat_dim = oshape[axis];
   bool has_any = false;
+  int data_length = static_cast<int>(tensor_tuple->fields.size());
   if (concat_dim.as<Any>()) {
     has_any = true;
   } else {
-    for (int i = 1; i < static_cast<int>(tensor_tuple->fields.size()); ++i) {
+    for (int i = 1; i < data_length; ++i) {
       const auto& e = Downcast<TensorType>(tensor_tuple->fields[i]);
       if (e->shape[axis].as<Any>()) {
         has_any = true;
@@ -118,6 +114,26 @@ bool ConcatenateRel(const Array<Type>& types,
 
   if (has_any) {
     concat_dim = Any::make();
+  }
+
+  for (int i = 0; i < ndim; ++i) {
+    if (i == axis) continue;
+    std::vector<IndexExpr> non_any;
+    for (int j = 0; j < data_length; ++j) {
+      const auto& e = Downcast<TensorType>(tensor_tuple->fields[j]);
+      if (!e->shape[i].as<Any>()) {
+        non_any.push_back(e->shape[i]);
+      }
+    }
+    int non_any_size = static_cast<int>(non_any.size());
+    if (non_any_size != data_length) oshape[i] = Any::make();
+    if (non_any_size > 0) {
+      for (int k = 1; k < non_any_size; k++) {
+        if (reporter->AssertEQ(non_any[0], non_any[k])) continue;
+        throw Error("relay.concatenate requires all tensors have the same shape "
+                    "on non-concatenating axes");
+      }
+    }
   }
 
   auto rtype = TensorType(oshape, dtype);

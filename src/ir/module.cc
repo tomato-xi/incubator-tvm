@@ -191,22 +191,6 @@ relay::Function RunTypeCheck(const IRModule& mod,
   // Type check the item before we add it to the module.
   auto fv = relay::FreeVars(func);
   auto ftv = relay::FreeTypeVars(func, mod);
-  if (fv.size() != 0) {
-    LOG(WARNING)
-        << "There are free variables: "
-        << fv
-        << " in function: "
-        << AsText(func, false)
-        << std::endl;
-  }
-  if (ftv.size() != 0) {
-    LOG(WARNING)
-        << "There are free type variables: "
-        << ftv
-        << " in function: "
-        << AsText(func, false)
-        << std::endl;
-  }
   func = relay::Function(concat(func->params, fv),
                          func->body,
                          func->ret_type,

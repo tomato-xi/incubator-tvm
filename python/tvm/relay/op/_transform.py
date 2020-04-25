@@ -109,11 +109,15 @@ def _strided_slice_shape_func(data, begin, end, strides):
         cbegin = 0
         cend = data.shape[i]
         cstride = 1
-        if len(begin) > i:
+        if len(begin.shape) > i:
             cbegin = begin[i]
-        if len(end) > i:
+            if cbegin < 0:
+                cbegin = data.shape[i] + cbegin
+        if len(end.shape) > i:
             cend = end[i]
-        if len(strides) > i:
+            if cend < 0:
+                cend = data.shape[i] + cend
+        if len(strides.shape) > i:
             cstride = strides[i]
         assert cstride != 0, "Strides can't be zero."
         out[i] = int64(ceil_div((int64(cend) - int64(cbegin)), int64(cstride)))
@@ -142,6 +146,8 @@ def _concatenate_shape_func(inputs, axis):
 @_reg.register_shape_func("concatenate", False)
 def concatenate_shape_func(attrs, inputs, _):
     axis = get_const_int(attrs.axis)
+    if axis < 0:
+        axis += inputs[0].shape[0]
     return [_concatenate_shape_func(inputs, convert(axis))]
 
 @script

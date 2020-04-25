@@ -21,11 +21,13 @@
  * \file topk.cc
  * \brief TopK operators
  */
+#include <tvm/tir/op.h>
 #include <tvm/relay/op.h>
 #include <tvm/relay/attrs/algorithm.h>
 
 namespace tvm {
 namespace relay {
+using tir::make_const;
 
 TVM_REGISTER_NODE_TYPE(TopKAttrs);
 
@@ -35,7 +37,7 @@ bool TopKRel(const Array<Type>& types,
              const TypeReporter& reporter) {
   // `types` contains: [data, result]
   const TopKAttrs* param = attrs.as<TopKAttrs>();
-  CHECK_EQ(types.size(), 2);
+  CHECK_EQ(types.size(), 3);
   const auto* data = types[0].as<TensorTypeNode>();
   CHECK(data);
   int ndim = data->shape.size();
@@ -46,20 +48,27 @@ bool TopKRel(const Array<Type>& types,
   CHECK(axis >= 0 && axis < ndim);
   Array<IndexExpr> out_shape;
   for (int i = 0; i < ndim; ++i) {
-    if (i != axis || param->k < 1) {
+    if (i != axis) {
       out_shape.push_back(data->shape[i]);
+    } else if (const ConstantNode* ck=param->k.as<ConstantNode>()) {
+      int64_t kval = reinterpret_cast<int64_t*>(ck->data->data)[0];
+      if (kval < 1) {
+        out_shape.push_back(data->shape[i]);
+      } else {
+        out_shape.push_back(tir::make_const(data->shape[i].dtype(), kval));
+      }
     } else {
-      out_shape.push_back(param->k);
+      out_shape.push_back(Any::make());
     }
   }
   auto values_ty = TensorType(out_shape, data->dtype);
   auto indices_ty = TensorType(out_shape, param->dtype);
   if (param->ret_type == "both") {
-    reporter->Assign(types[1], TupleType({values_ty, indices_ty}));
+    reporter->Assign(types[2], TupleType({values_ty, indices_ty}));
   } else if (param->ret_type == "values") {
-    reporter->Assign(types[1], values_ty);
+    reporter->Assign(types[2], values_ty);
   } else if (param->ret_type == "indices") {
-    reporter->Assign(types[1], indices_ty);
+    reporter->Assign(types[2], indices_ty);
   } else {
     LOG(FATAL) << "Unsupported ret type: " << param->ret_type;
   }
@@ -67,7 +76,7 @@ bool TopKRel(const Array<Type>& types,
 }
 
 Expr MakeTopK(Expr data,
-              int k,
+              Expr k,
               int axis,
               std::string ret_type,
               bool is_ascend,
@@ -79,7 +88,7 @@ Expr MakeTopK(Expr data,
   attrs->is_ascend = is_ascend;
   attrs->dtype = dtype;
   static const Op& op = Op::Get("topk");
-  return Call(op, {data}, Attrs(attrs), {});
+  return Call(op, {data, k}, Attrs(attrs), {});
 }
 
 
@@ -89,9 +98,10 @@ TVM_REGISTER_GLOBAL("relay.op._make.topk")
 RELAY_REGISTER_OP("topk")
 .describe(R"doc(Get the top k elements in an input tensor along the given axis.
 )doc" TVM_ADD_FILELINE)
-.set_num_inputs(1)
+.set_num_inputs(2)
 .set_attrs_type<TopKAttrs>()
 .add_argument("data", "Tensor", "Input data.")
+.add_argument("k", "Tensor", "Number of top tensors.")
 .set_support_level(6)
 .add_type_rel("TopK", TopKRel);
 
