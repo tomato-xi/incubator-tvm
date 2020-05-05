@@ -325,15 +325,7 @@ IRModule SequentialNode::operator()(IRModule mod,
     for (const auto& it : pass_info->required) {
       mod = GetPass(it)(std::move(mod), pass_ctx);
     }
-    LOG(INFO) << "Executing seq pass : "
-             << pass_info->name
-             << " with opt level: "
-             << pass_info->opt_level;
     mod = pass(std::move(mod), pass_ctx);
-    LOG(INFO) << "Complete seq pass : "
-             << pass_info->name
-             << " with opt level: "
-             << pass_info->opt_level;
   }
   return mod;
 }

@@ -37,7 +37,7 @@ aaa = 0
 def _alter_conv2d_layout(attrs, inputs, tinfos, out_type):
     global aaa
     aaa += 1
-    print("Num of conv2d %d" % aaa)
+    logger.warning("Num of conv2d %d" % aaa)
     target = tvm.target.Target.current(allow_none=False)
     dispatch_ctx = autotvm.task.DispatchContext.current
     if isinstance(dispatch_ctx, autotvm.task.ApplyGraphBest):

@@ -255,13 +255,9 @@ def resize_bilinear(indices, data, image_height, image_width,
         y1, x1 = boxes(n, 0), boxes(n, 1)
         y2, x2 = boxes(n, 2), boxes(n, 3)
 
-        in_h = (image_height - 1) * (y2 - y1)
-        in_w = (image_width - 1) * (x2 - x1)
-        h_scale = in_h.astype('float') / (target_height - 1)
-        w_scale = in_w.astype('float') / (target_width - 1)
+        in_y = y1 * (image_height - 1) + (image_height - 1) * (y2 - y1) * y / (target_height - 1)
+        in_x = x1 * (image_width - 1) + (image_width - 1) * (x2 - x1) * x / (target_width - 1)
 
-        in_y = y1 * (image_height - 1) + h_scale * y
-        in_x = x1 * (image_width - 1) + w_scale * x
     else:
         if coordinate_transformation_mode == "align_corners":
             h_scale = (image_height - 1).astype('float') / (target_height - 1)

@@ -594,7 +594,7 @@ Expr MakeConcatenate(Expr data, int axis);
 
 Expr MakeRepeat(Expr data, int repeats, int axis);
 
-Expr MakeStridedSlice(Expr data, Expr begin, Expr end, Expr strides);
+Expr MakeStridedSlice(Expr data, Expr begin, Expr end, Expr strides, bool slice_mode);
 
 Expr MakeStack(Expr data, int axis);
 

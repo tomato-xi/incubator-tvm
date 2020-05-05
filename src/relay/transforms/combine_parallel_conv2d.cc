@@ -208,7 +208,8 @@ class ParallelConv2DCombiner : public ParallelOpCombiner {
       auto slice = MakeStridedSlice(data,
                                     Constant(begin_ndarray),
                                     Constant(end_ndarray),
-                                    Constant(strides_ndarray));
+                                    Constant(strides_ndarray),
+				    false);
       subst_map->insert({GetRef<Expr>(branch[depth]), slice});
     }
   }

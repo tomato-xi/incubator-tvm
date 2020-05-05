@@ -605,7 +605,7 @@ def split(data, indices_or_sections, axis=0):
     return TupleWrapper(_make.split(data, indices_or_sections, axis), ret_size)
 
 
-def strided_slice(data, begin, end, strides=None):
+def strided_slice(data, begin, end, strides=None, slice_mode=False):
     """Strided slice of an array.
 
     Parameters
@@ -629,7 +629,7 @@ def strided_slice(data, begin, end, strides=None):
         The computed result.
     """
     strides = strides or const([1], dtype="int32")
-    return _make.strided_slice(data, begin, end, strides)
+    return _make.strided_slice(data, begin, end, strides, slice_mode)
 
 
 def strided_set(data, v, begin, end, strides=None):

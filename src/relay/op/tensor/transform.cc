@@ -2117,11 +2117,13 @@ Array<te::Tensor> StridedSliceCompute(const Attrs& attrs,
 Expr MakeStridedSlice(Expr data,
                       Expr begin,
                       Expr end,
-                      Expr strides) {
+                      Expr strides,
+		      bool slice_mode) {
   auto attrs = make_object<StridedSliceAttrs>();
   attrs->begin = begin;
   attrs->end = end;
   attrs->strides = strides;
+  attrs->slice_mode = slice_mode;
   static const Op& op = Op::Get("strided_slice");
   return Call(op, {data, begin, end, strides}, Attrs(attrs), {});
 }

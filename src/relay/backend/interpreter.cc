@@ -773,7 +773,7 @@ CreateInterpreter(
   auto intrp = std::make_shared<Interpreter>(mod, context, target);
   auto packed = [intrp](Expr expr) {
     auto f = DetectFeature(expr);
-    //CHECK(f.is_subset_of(FeatureSet::All() - fGraph));
+    CHECK(f.is_subset_of(FeatureSet::All() - fGraph));
     return intrp->Eval(expr);
   };
   return TypedPackedFunc<ObjectRef(Expr)>(packed);

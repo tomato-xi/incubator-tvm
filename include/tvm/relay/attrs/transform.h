@@ -231,6 +231,7 @@ struct StridedSliceAttrs : public tvm::AttrsNode<StridedSliceAttrs> {
   Expr begin;
   Expr end;
   Expr strides;
+  bool slice_mode;
 
   TVM_DECLARE_ATTRS(StridedSliceAttrs, "relay.attrs.StridedSliceAttrs") {
     TVM_ATTR_FIELD(begin)
@@ -239,6 +240,9 @@ struct StridedSliceAttrs : public tvm::AttrsNode<StridedSliceAttrs> {
         .describe("Indices for end of slice, end index is exclusive");
     TVM_ATTR_FIELD(strides)
         .describe("Stride values of the slice");
+    TVM_ATTR_FIELD(slice_mode)
+        .describe("slice_mode")
+	.set_default(false);
   }
 };
 

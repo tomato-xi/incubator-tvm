@@ -670,7 +670,7 @@ def _nms():
                                                       invalid_to_bottom=False)
 
         # squeeze it, TF NMS is not batched
-        end = get_relay_op("squeeze")(nms_ret[1], axis=[1])
+        end = get_relay_op("squeeze")(nms_ret[1], axis=[0])
         data_slice = get_relay_op("squeeze")(nms_ret[0], axis=[0])
 
         # slice to get the dynamic result
@@ -1147,15 +1147,20 @@ def _slice():
         data_dim = len(data_shape)
         end = size
         strides = None
+        use_shape_of = False
+        slice_mode = False
         if not isinstance(end, (_expr.Call, _expr.Var)):
-            use_shape_of = False
+            has_infer_size = False
             for i in range(data_dim):
                 if size[i] == -1:
+                    has_infer_size = True
                     if isinstance(data_shape[i], int):
                         end[i] = data_shape[i]
                     else:
                         use_shape_of = True
                 else:
+                    if has_infer_size:
+                        raise RuntimeError("Slice error!")
                     end[i] += begin[i]
             if use_shape_of:
                 end = symbolic_dshape
@@ -1164,9 +1169,14 @@ def _slice():
             for i in range(len(begin), data_dim):
                 begin.append(0)
             strides = _expr.const([1] * data_dim)
+            cbegin = _expr.const(begin)
+            if not use_shape_of:
+                end = end + cbegin
+            slice_mode = True
+        else:
+            cbegin = _expr.const(begin)
 
-
-        return _op.strided_slice(inputs[0], begin=_expr.const(begin), end=_expr.const(end) if not isinstance(end, (_expr.Call, _expr.Var)) else end, strides=strides)
+        return _op.strided_slice(inputs[0], begin=cbegin, end=_expr.const(end) if not isinstance(end, (_expr.Call, _expr.Var)) else end, strides=strides, slice_mode=slice_mode)
     return _impl
 
 def _reshape():
@@ -3416,6 +3426,11 @@ class GraphProto(object):
                 op = [op]
 
             self._nodes[node_name] = op
+
+            #print(node.name)
+            #print(_infer_type(op[0], self._mod))
+            #print("\n")
+
 
         return self._nodes[node_name]
 

@@ -102,22 +102,26 @@ def arange_shape_func(attrs, inputs, _):
     return [_arange_shape_func(*inputs)]
 
 @script
-def _strided_slice_shape_func(data, begin, end, strides):
+def _strided_slice_shape_func(data, begin, end, strides, slice_mode):
     ndim = len(data.shape)
+
     out = output_tensor((ndim,), "int64")
     for i in const_range(ndim):
         cbegin = 0
         cend = data.shape[i]
         cstride = 1
-        if len(begin.shape) > i:
+        if begin.shape[0] > i:
             cbegin = begin[i]
             if cbegin < 0:
                 cbegin = data.shape[i] + cbegin
-        if len(end.shape) > i:
+        if end.shape[0] > i:
             cend = end[i]
             if cend < 0:
-                cend = data.shape[i] + cend
-        if len(strides.shape) > i:
+                if slice_mode <= 0:
+                    cend = data.shape[i] + cend
+                else:
+                    cend = data.shape[i]
+        if strides.shape[0] > i:
             cstride = strides[i]
         assert cstride != 0, "Strides can't be zero."
         out[i] = int64(ceil_div((int64(cend) - int64(cbegin)), int64(cstride)))
@@ -125,7 +129,7 @@ def _strided_slice_shape_func(data, begin, end, strides):
 
 @_reg.register_shape_func("strided_slice", True)
 def strided_slice_shape_func(attrs, inputs, _):
-    return [_strided_slice_shape_func(*inputs)]
+    return [_strided_slice_shape_func(*inputs, convert(attrs.slice_mode))]
 
 @script
 def _concatenate_shape_func(inputs, axis):

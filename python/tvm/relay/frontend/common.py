@@ -395,10 +395,12 @@ class AttrCvt(object):
                 raise NotImplementedError('Attribute %s in operator %s is not' +
                                           ' supported.', k, op_name)
             if k in self._disables:
-                logging.warning("Attribute %s is disabled in relay.sym.%s", k, op_name)
+                #logging.warning("Attribute %s is disabled in relay.sym.%s", k, op_name)
+                pass
             elif k in self._ignores:
                 if k != 'tvm_custom':
-                    logging.warning("Attribute %s is ignored in relay.sym.%s", k, op_name)
+                    #logging.warning("Attribute %s is ignored in relay.sym.%s", k, op_name)
+                    pass
             elif k in self._transforms:
                 new_name, defaults, transform = self._parse_default(self._transforms[k])
                 if defaults is None:
